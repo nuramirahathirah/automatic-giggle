@@ -1,0 +1,91 @@
+<launch>
+
+	<!--open Gazebo-->
+	<arg name="model" default="burger" doc="model type [burger, waffle, waffle_pi]"/>
+	<arg name="x_pos" default="0.0"/>
+	<arg name="y_pos" default="0.0"/>
+	<arg name="z_pos" default="0.0"/>
+
+	<!--include file="$(find gazebo_ros)/launch/empty_world.launch">
+	    	<arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/empty.world"/>
+	   	<arg name="paused" value="false"/>
+	    	<arg name="use_sim_time" value="true"/>
+	   	<arg name="gui" value="true"/>
+	    	<arg name="headless" value="false"/>
+	    	<arg name="debug" value="false"/>
+	</include>--> 
+
+	<param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+	<node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+
+
+<!--
+run in terminal 
+rosrun find_object_2d find_object_2d image:=raspicam_node/image
+-->
+
+	<!--camera laptop-->
+	<!--  
+	<node name="uvc_cam" type="uvc_camera_node" pkg="uvc_camera"/> 
+	
+	<node name="find_object_2d" pkg="find_object_2d" type="find_object_2d" output="screen">
+		<remap from="/image" to="image_raw"/>
+		<param name="gui" value="true" type="bool"/>
+		<param name="objects_path" value="~/object" type="str"/>
+		<param name="settings_path" value="~/.ros/find_object_2d.ini" type="str"/>
+		<param name="subscribe_depth" value="false" type="bool"/>
+	</node>
+	-->
+
+	<!--camera robot-->
+	<node name="republish" type="republish" pkg="image_transport" output="screen" args="compressed in:=/raspicam_node/image raw out:=/raspicam_node/image" >
+	</node>
+	
+	<node name="find_object_2d" pkg="find_object_2d" type="find_object_2d" output="screen">
+		<remap from="/image" to="/raspicam_node/image"/>
+		<param name="gui" value="true" type="bool"/>
+		<param name="objects_path" value="~/object" type="str"/>
+		<param name="settings_path" value="~/.ros/find_object_2d.ini" type="str"/>
+		<param name="subscribe_depth" value="false" type="bool"/>
+	</node>
+	
+
+
+
+  	<!-- open rviz -->
+	<arg name="map_file" default="/home/amirah/map.yaml"/>
+	<arg name="open_rviz" default="true"/>
+	<arg name="move_forward_only" default="false"/>
+
+	<!-- Turtlebot3 -->
+	<include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+	    	<arg name="model" value="$(arg model)" />
+	</include>
+
+	<!-- Map server -->
+	<node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+
+	<!-- AMCL -->
+	<include file="$(find simple_goals)/launch/amcl.launch"/>
+
+	<!-- move_base -->
+	<include file="$(find turtlebot3_navigation)/launch/move_base.launch">
+	    	<arg name="model" value="$(arg model)" />
+	    	<arg name="move_forward_only" value="$(arg move_forward_only)"/>
+	</include>
+
+	<!-- rviz -->
+	<group if="$(arg open_rviz)"> 
+	    	<node pkg="rviz" type="rviz" name="rviz" required="true"
+		  args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+	</group>
+
+
+
+
+	<!--code-->
+	<node pkg="simple_goals" type="simple_navigation_goals" name="the_code"/>
+
+
+</launch>
